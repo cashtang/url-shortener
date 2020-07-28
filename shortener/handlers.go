@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"github.com/gorilla/mux"
+	"github.com/teris-io/shortid"
 )
 
 //Body is the response body
@@ -20,7 +21,7 @@ func (a *App) Home(w http.ResponseWriter, r *http.Request) {
 
 //Shorten url POST method
 func (a *App) Shorten(w http.ResponseWriter, r *http.Request) {
-	var id int64
+	var id string
 	var body Body
 
 	decoder := json.NewDecoder(r.Body)
@@ -36,36 +37,38 @@ func (a *App) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.DB.QueryRow("SELECT id FROM shortened_urls WHERE long_url = ?", url).Scan(&id)
-	if id == 0 {
-		res, err := a.DB.Exec(`INSERT INTO shortened_urls (long_url, created) VALUES(?, now())`, url)
+	err := a.DB.QueryRow("SELECT id FROM shortened_urls WHERE long_url = ?", url).Scan(&id)
+	if err != nil {
+		if id, err = shortid.Generate(); err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Generate SHORTID error")
+			return
+		}
+		_, err := a.DB.Exec(`INSERT INTO shortened_urls (id, long_url, created) VALUES(?, ?, now())`,
+			id, url)
 		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		id, _ = res.LastInsertId()
 	}
-	hash := encode(id)
-	body.URL = r.Host + "/" + hash
+	body.URL = a.Config.PublicURL + "/" + id
 	sendResponse(w, http.StatusOK, body)
 }
 
 //Redirect route
 func (a *App) Redirect(w http.ResponseWriter, r *http.Request) {
-	var id int64
+	var id string
 	var longURL string
 
 	vars := mux.Vars(r)
 	hash := vars["hash"]
 
-	decodedID := decode(hash)
-	a.DB.QueryRow("SELECT id, long_url FROM shortened_urls WHERE id = ?", decodedID).
+	err := a.DB.QueryRow("SELECT id, long_url FROM shortened_urls WHERE id = ?", hash).
 		Scan(&id, &longURL)
-
-	if id == 0 {
-		respondWithError(w, http.StatusNotFound, "Not found")
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Short ID not found")
 		return
 	}
+
 	http.Redirect(w, r, longURL, http.StatusSeeOther)
 }
 

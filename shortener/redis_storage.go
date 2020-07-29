@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -17,11 +18,15 @@ type RedisStorage struct {
 }
 
 // Open connect to redis
-func (r *RedisStorage) Open(storageType string, connectURL string) error {
+func (r *RedisStorage) Open(url *url.URL) error {
+	pswd := ""
+	if p, ok := url.User.Password(); ok {
+		pswd = p
+	}
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
+		Addr:     url.Host,
+		Password: pswd, // no password set
+		DB:       0,    // use default DB
 	})
 	_, err := rdb.Ping(r.ctx).Result()
 	if err != nil {
@@ -46,7 +51,7 @@ func (r *RedisStorage) key(id string) string {
 // NewURL save new url
 func (r *RedisStorage) NewURL(url string, id string, ttl int) error {
 	key := r.key(id)
-	_, err := r.client.SetNX(r.ctx, key, url, time.Duration(ttl)*time.Second).Result()
+	_, err := r.client.SetNX(r.ctx, key, url, time.Duration(ttl)*time.Hour).Result()
 	if err != nil {
 		log.Println("save redis url error, ", err)
 		return err

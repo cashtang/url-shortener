@@ -2,6 +2,7 @@ package shortener
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -23,6 +24,7 @@ func (a *App) Home(w http.ResponseWriter, r *http.Request) {
 func (a *App) Shorten(w http.ResponseWriter, r *http.Request) {
 	var id string
 	var body Body
+	var err error
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&body); err != nil {
@@ -37,33 +39,25 @@ func (a *App) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := a.DB.QueryRow("SELECT id FROM shortened_urls WHERE long_url = ?", url).Scan(&id)
-	if err != nil {
-		if id, err = shortid.Generate(); err != nil {
-			respondWithError(w, http.StatusInternalServerError, "Generate SHORTID error")
-			return
-		}
-		_, err := a.DB.Exec(`INSERT INTO shortened_urls (id, long_url, created) VALUES(?, ?, now())`,
-			id, url)
-		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
+	id, err = shortid.Generate()
+	if err = a.Storage.NewURL(url, id, a.Config.App.TTL); err != nil {
+		message := fmt.Sprintf("Save URL error,%v ", err)
+		respondWithError(w, http.StatusInternalServerError, message)
+		return
 	}
-	body.URL = a.Config.PublicURL + "/" + id
+	body.URL = a.Config.App.PublicURL + "/" + id
 	sendResponse(w, http.StatusOK, body)
 }
 
 //Redirect route
 func (a *App) Redirect(w http.ResponseWriter, r *http.Request) {
-	var id string
 	var longURL string
+	var err error
 
 	vars := mux.Vars(r)
 	hash := vars["hash"]
 
-	err := a.DB.QueryRow("SELECT id, long_url FROM shortened_urls WHERE id = ?", hash).
-		Scan(&id, &longURL)
+	longURL, err = a.Storage.FindByID(hash)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "Short ID not found")
 		return

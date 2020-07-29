@@ -1,13 +1,24 @@
 GO=go
 TARGET=url_shortener
 OUTPUT=./build
+VERSION=$(shell git describe --all --tags --abbrev=4 --dirty)
+GOVERSION=$(shell go version)
+OS=$(shell uname -s)
+TARGET_SUFFIX=
 
+ifeq ($(OS),Darwin)
+    BUILDTYPE=darwin
+else ifeq ($(OS),Linux)
+    BUILDTYPE=linux
+else
+    BUILDTYPE=windows
+    TARGET_SUFFIX=.exe
+endif
 
-.PHONEY: clean
+.PHONEY: clean build
 
 build:
-	$(GO) build -v -o $(OUTPUT)/$(TARGET)
-
+	$(call build_execuable,$(BUILDTYPE),$(TARGET_SUFFIX))
 
 win:
 	$(call build_execuable,windows,.exe)
@@ -23,11 +34,11 @@ all: win linux osx
 clean:
 	rm -rf $(OUTPUT)
 
-
-docker: build
+docker: 
 	$(DOCKER) build -t harbor.supwisdom.com/epay/urlshortener:latest	
 
 
 define build_execuable
-	GOOS=$(1) GOARCH=amd64 $(GO) build -v -o $(OUTPUT)/$(TARGET)_$(1)$(2)
+	GOOS=$(1) GOARCH=amd64 $(GO) build -v \
+    -ldflags '-X "main.GOVERSION=$(GOVERSION)" -X "main.VERSION=$(VERSION)"' -o $(OUTPUT)/$(TARGET)_$(1)$(2)
 endef

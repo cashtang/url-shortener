@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"flag"
@@ -21,6 +23,16 @@ var GOVERSION = "unknown"
 
 func serve(a shortener.App) {
 	a.Run(fmt.Sprintf(":%v", a.Config.App.Port))
+}
+
+func setupCloseHandler() {
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		log.Println("\r - Ctrl-c terminate process!!")
+		os.Exit(1)
+	}()
 }
 
 func main() {
@@ -45,6 +57,7 @@ func main() {
 		return
 	}
 
+	setupCloseHandler()
 	r := mux.NewRouter()
 	if err := a.Init(configFile, r); err != nil {
 		log.Println("init app error, ", err)

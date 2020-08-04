@@ -29,6 +29,9 @@ linux:
 osx:
 	$(call build_execuable,darwin,)
 
+debug:
+	$(GO) run .
+
 all: win linux osx
 
 clean:

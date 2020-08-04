@@ -16,6 +16,12 @@ type DatabaseStorage struct {
 	db *sql.DB
 }
 
+// NewDatabaseStorage -
+func NewDatabaseStorage() *DatabaseStorage {
+	r := &DatabaseStorage{}
+	return r
+}
+
 // Open open database
 func (d *DatabaseStorage) Open(url *url.URL) error {
 	var db *sql.DB
@@ -48,7 +54,7 @@ func (d *DatabaseStorage) Close() error {
 }
 
 // NewURL create new url entry
-func (d *DatabaseStorage) NewURL(url string, id string, ttl int) error {
+func (d *DatabaseStorage) NewURL(url string, id string, appid string, ttl int) error {
 	var err error
 	_, err = d.db.Exec(`INSERT INTO shortened_urls (id, long_url, created) VALUES(?, ?, now())`,
 		id, url)

@@ -16,7 +16,7 @@ import (
 const defaultConfig = `app:
   port: 8080
   ttl: 4320 # 24 * 180
-  storage_connect_url: 127.0.0.1:5432
+  storage_connect_url: redis://127.0.0.1:6379
   public_url: http://localhost:8080
 `
 
@@ -45,6 +45,8 @@ func (a *App) initRouter() {
 	a.Router.HandleFunc("/", a.Home).Methods("GET")
 	a.Router.HandleFunc("/{hash}", a.Redirect).Methods("GET")
 	a.Router.HandleFunc("/shorten", a.Shorten).Methods("POST")
+	a.Router.HandleFunc("/sa/register/{appid}", a.Register).Methods("POST")
+	a.Router.HandleFunc("/sa/register/{appid}", a.UnRegister).Methods("DELETE")
 }
 
 func (a *App) loadConfig(configFile string) error {
@@ -72,10 +74,12 @@ func (a *App) Init(configFile string, router *mux.Router) error {
 	a.Router = router
 	a.initRouter()
 
-	if r, err := InitStorage(a.Config.App.StorageConnectURL); err == nil {
+	r, err := InitStorage(a.Config.App.StorageConnectURL)
+	if err == nil {
 		a.Storage = r
+
 	}
-	return nil
+	return err
 }
 
 // GenerateConfig generate config file template
@@ -102,5 +106,6 @@ func (a *App) GenerateConfig(configFile string) {
 
 //Run the app
 func (a *App) Run(port string) {
+	log.Println("url-shorten service started!!")
 	log.Fatal(http.ListenAndServe(port, a.Router))
 }

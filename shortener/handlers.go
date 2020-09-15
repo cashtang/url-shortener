@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/teris-io/shortid"
@@ -116,6 +117,20 @@ func (a *App) Redirect(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "Short ID not found")
 		return
+	}
+
+	u, err := url.ParseRequestURI(r.RequestURI)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Short URL error")
+		return
+	}
+	params := u.Query().Encode()
+	if len(params) > 0 {
+		if strings.Index(longURL, "?") != -1 {
+			longURL = longURL + "&" + params
+		} else {
+			longURL = longURL + "?" + params
+		}
 	}
 
 	http.Redirect(w, r, longURL, http.StatusSeeOther)

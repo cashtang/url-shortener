@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
+	"time"
 
 	// Add mysql driver
 	_ "github.com/go-sql-driver/mysql"
@@ -65,16 +66,23 @@ func (d *DatabaseStorage) NewURL(url string, id string, appid string, ttl int) e
 }
 
 // FindByID find long url by id
-func (d *DatabaseStorage) FindByID(id string) (string, error) {
+func (d *DatabaseStorage) FindByID(id string) (*URLMeta, error) {
 	var longURL string
-	err := d.db.QueryRow("SELECT id FROM shortened_urls WHERE id = ?", id).Scan(&longURL)
+	var appid string
+	var created time.Time
+	err := d.db.QueryRow("SELECT id, appid FROM shortened_urls WHERE id = ?", id).
+		Scan(&longURL, &appid, &created)
 	if err != nil && sql.ErrNoRows != err {
-		return "", err
+		return nil, err
 	}
 	if sql.ErrNoRows == err {
-		return "", ErrIDNotFound
+		return nil, ErrIDNotFound
 	}
-	return longURL, nil
+	meta := &URLMeta{
+		LongURL:   longURL,
+		AppID:     appid,
+		CreatedAt: created.String()}
+	return meta, nil
 }
 
 // DeleteURLByID delete url by id

@@ -96,14 +96,18 @@ func (r *RedisStorage) DeleteURLByID(id string) error {
 }
 
 // FindByID find url from redis
-func (r *RedisStorage) FindByID(id string) (string, error) {
+func (r *RedisStorage) FindByID(id string) (*URLMeta, error) {
 	key := r.key(id)
-	url, err := r.client.HGet(r.ctx, key, "url").Result()
+	meta := &URLMeta{}
+	values, err := r.client.HMGet(r.ctx, key, "url", "appid", "created_at").Result()
 	if err != nil {
-		log.Println("get redis key value error ", err)
-		return "", err
+		log.Println("get redis key value error", err)
+		return nil, err
 	}
-	return url, err
+	meta.LongURL = values[0].(string)
+	meta.AppID = values[1].(string)
+	meta.CreatedAt = values[2].(string)
+	return meta, err
 }
 
 func (r *RedisStorage) appidStoreKey(appid string) string {

@@ -8,6 +8,15 @@ import (
 )
 
 // URLStorage url storage interface
+
+// URLMeta -
+type URLMeta struct {
+	LongURL   string
+	AppID     string
+	CreatedAt string
+}
+
+// URLStorage -
 type URLStorage interface {
 	Open(url *url.URL) error
 
@@ -17,7 +26,7 @@ type URLStorage interface {
 
 	DeleteURLByID(id string) error
 
-	FindByID(id string) (string, error)
+	FindByID(id string) (*URLMeta, error)
 
 	RegisterAppID(appid string) (string, error)
 

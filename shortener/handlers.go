@@ -107,13 +107,13 @@ func (a *App) UnRegister(w http.ResponseWriter, r *http.Request) {
 
 //Redirect route
 func (a *App) Redirect(w http.ResponseWriter, r *http.Request) {
-	var longURL string
+	var meta *URLMeta
 	var err error
 
 	vars := mux.Vars(r)
 	hash := vars["hash"]
 
-	longURL, err = a.Storage.FindByID(hash)
+	meta, err = a.Storage.FindByID(hash)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "Short ID not found")
 		return
@@ -125,11 +125,12 @@ func (a *App) Redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	params := u.Query().Encode()
+	var longURL string
 	if len(params) > 0 {
-		if strings.Index(longURL, "?") != -1 {
-			longURL = longURL + "&" + params
+		if strings.Index(meta.LongURL, "?") != -1 {
+			longURL = meta.LongURL + "&" + params
 		} else {
-			longURL = longURL + "?" + params
+			longURL = meta.LongURL + "?" + params
 		}
 	}
 

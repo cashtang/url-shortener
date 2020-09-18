@@ -18,6 +18,9 @@ const defaultConfig = `app:
   ttl: 4320 # 24 * 180
   storage_connect_url: redis://127.0.0.1:6379
   public_url: http://localhost:8080
+  params_deny:
+    - appid
+    - secret
 `
 
 // AppConfig application configuration
@@ -31,6 +34,8 @@ type AppConfig struct {
 		StorageConnectURL string `yaml:"storage_connect_url"`
 		// PublicURL public url
 		PublicURL string `yaml:"public_url"`
+		// ParamsDeny
+		ParamsDeny []string `yaml:"params_deny"`
 	}
 }
 
@@ -63,6 +68,7 @@ func (a *App) loadConfig(configFile string) error {
 	if a.Config.App.TTL <= 0 {
 		a.Config.App.TTL = 6000
 	}
+	log.Println("param deny", a.Config.App.ParamsDeny)
 	return nil
 }
 

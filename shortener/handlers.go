@@ -124,6 +124,14 @@ func (a *App) Redirect(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Short URL error")
 		return
 	}
+	for k := range u.Query() {
+		for _, p := range a.Config.App.ParamsDeny {
+			if k == p {
+				respondWithError(w, http.StatusBadRequest, "Short Query Param deny")
+				return
+			}
+		}
+	}
 	params := u.Query().Encode()
 	var longURL string
 	if len(params) > 0 {

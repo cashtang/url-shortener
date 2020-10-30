@@ -140,6 +140,8 @@ func (a *App) Redirect(w http.ResponseWriter, r *http.Request) {
 		} else {
 			longURL = meta.LongURL + "?" + params
 		}
+	} else {
+		longURL = meta.LongURL
 	}
 
 	http.Redirect(w, r, longURL, http.StatusSeeOther)

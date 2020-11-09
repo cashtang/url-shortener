@@ -34,6 +34,10 @@ type AppConfig struct {
 		StorageConnectURL string `yaml:"storage_connect_url"`
 		// PublicURL public url
 		PublicURL string `yaml:"public_url"`
+		// SignFile -
+		SignFileDir string `yaml:"sign_file_dir"`
+		// AdminToken -
+		AdminToken string `yaml:"admin_token"`
 		// ParamsDeny
 		ParamsDeny []string `yaml:"params_deny"`
 	}
@@ -41,17 +45,22 @@ type AppConfig struct {
 
 //App with a router and db as dependencies
 type App struct {
+	BaseDir string
 	Router  *mux.Router
 	Config  AppConfig
 	Storage URLStorage
 }
 
+const signFilePattern = `[a-zA-Z0-9]+\.txt`
+
 func (a *App) initRouter() {
 	a.Router.HandleFunc("/", a.Home).Methods("GET")
-	a.Router.HandleFunc("/{hash}", a.Redirect).Methods("GET")
 	a.Router.HandleFunc("/shorten", a.Shorten).Methods("POST")
 	a.Router.HandleFunc("/sa/register/{appid}", a.Register).Methods("POST")
 	a.Router.HandleFunc("/sa/register/{appid}", a.UnRegister).Methods("DELETE")
+	a.Router.HandleFunc(fmt.Sprintf("/{sign:%v}", signFilePattern), a.signedFileGet).Methods("GET")
+	a.Router.HandleFunc("/signFile", a.signedFilePost).Methods("POST")
+	a.Router.HandleFunc("/{hash}", a.Redirect).Methods("GET")
 }
 
 func (a *App) loadConfig(configFile string) error {

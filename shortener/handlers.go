@@ -3,13 +3,20 @@ package shortener
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path"
 	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/teris-io/shortid"
 )
+
+const MAX_SIGN_FILE = 1024 * 10
 
 //Body is the response body
 type Body struct {
@@ -24,6 +31,15 @@ type AppBody struct {
 //Home page
 func (a *App) Home(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Nothing to see here"))
+}
+
+func (a *App) verifyAdminToken(w http.ResponseWriter, r *http.Request) bool {
+	apiKey := r.Header.Get("ApiKey")
+	if apiKey == a.Config.App.AdminToken {
+		return true
+	}
+	respondWithError(w, http.StatusForbidden, "token error")
+	return false
 }
 
 func (a *App) verifyAppSecret(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -95,6 +111,9 @@ func (a *App) Register(w http.ResponseWriter, r *http.Request) {
 // UnRegister -
 func (a *App) UnRegister(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	if !a.verifyAdminToken(w, r) {
+		return
+	}
 	appid := vars["appid"]
 	err := a.Storage.UnregisterAppID(appid)
 	if err != nil {
@@ -153,7 +172,71 @@ func isValidURL(toTest string) bool {
 		return false
 	}
 	return true
+}
 
+func (a *App) getSignFullPath(signFile string) string {
+	var fullPath string
+	if path.IsAbs(a.Config.App.SignFileDir) {
+		fullPath = path.Join(a.Config.App.SignFileDir, signFile)
+	} else {
+		fullPath = path.Join(a.BaseDir, a.Config.App.SignFileDir, signFile)
+	}
+	return fullPath
+}
+
+func (a *App) signedFileGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	signFile := vars["sign"]
+	fullPath := a.getSignFullPath(signFile)
+
+	file, err := os.Open(fullPath)
+	if err != nil || os.IsNotExist(err) {
+		respondWithError(w, http.StatusNotFound, "no file found")
+	}
+	defer file.Close()
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "read file error")
+	}
+	w.Write(content)
+}
+
+func (a *App) signedFilePost(w http.ResponseWriter, r *http.Request) {
+	if !a.verifyAdminToken(w, r) {
+		return
+	}
+
+	if err := r.ParseMultipartForm(MAX_SIGN_FILE); err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	multpart, fileHeader, err := r.FormFile("sign")
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	defer multpart.Close()
+
+	if fileHeader.Size >= MAX_SIGN_FILE {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	log.Println("sign file :", fileHeader.Filename)
+	fullPath := a.getSignFullPath(fileHeader.Filename)
+	file, err := os.OpenFile(fullPath, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer file.Close()
+	if _, err := io.Copy(file, multpart); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.Write([]byte("success"))
 }
 
 func respondWithError(w http.ResponseWriter, code int, message string) {

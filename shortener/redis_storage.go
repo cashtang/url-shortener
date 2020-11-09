@@ -2,6 +2,7 @@ package shortener
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -104,9 +105,18 @@ func (r *RedisStorage) FindByID(id string) (*URLMeta, error) {
 		log.Println("get redis key value error", err)
 		return nil, err
 	}
-	meta.LongURL = values[0].(string)
-	meta.AppID = values[1].(string)
-	meta.CreatedAt = values[2].(string)
+	if values[0] != nil {
+		meta.LongURL = values[0].(string)
+	}
+	if values[1] != nil {
+		meta.AppID = values[1].(string)
+	}
+	if values[2] != nil {
+		meta.CreatedAt = values[2].(string)
+	}
+	if len(meta.LongURL) == 0 {
+		return nil, errors.New("id value is error")
+	}
 	return meta, err
 }
 

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path"
 	"syscall"
 	"time"
 
@@ -51,7 +52,9 @@ func main() {
 		log.Println("Build:", GOVERSION)
 		return
 	}
-	a := shortener.App{}
+	a := shortener.App{
+		BaseDir: path.Dir(os.Args[0]),
+	}
 	if generateConfig {
 		a.GenerateConfig(configFile)
 		return

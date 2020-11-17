@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
 	"path"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/cashtang/url-shortener/shortener"
 
 	"github.com/gorilla/mux"
+	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 )
 
 // VERSION service version
@@ -34,6 +37,28 @@ func setupCloseHandler() {
 		log.Println("\r - Ctrl-c terminate process!!")
 		os.Exit(1)
 	}()
+}
+
+func setupLog() {
+	var logDir = ""
+	if runtime.GOOS == "windows" {
+		logDir = os.TempDir()
+	} else {
+		logDir = "/var/log/url-shortener"
+	}
+	logFile := path.Join(logDir, "url-shortener.log")
+	logf, err := rotatelogs.New(
+		fmt.Sprintf("%v.%v", logFile, "%Y%m%d"),
+		rotatelogs.WithLinkName(logFile),
+		rotatelogs.WithMaxAge(7*24*time.Hour),
+		rotatelogs.WithRotationTime(24*time.Hour),
+	)
+	if err != nil {
+		log.Printf("failed to create rotatelogs: %s", err)
+		return
+	}
+	log.SetOutput(io.MultiWriter(os.Stdout, logf))
+	log.Println("setup log success ...", logFile)
 }
 
 func main() {
@@ -61,6 +86,7 @@ func main() {
 	}
 
 	setupCloseHandler()
+	setupLog()
 	r := mux.NewRouter()
 	if err := a.Init(configFile, r); err != nil {
 		log.Println("init app error, ", err)

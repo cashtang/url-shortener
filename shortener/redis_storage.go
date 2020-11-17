@@ -63,26 +63,25 @@ func (r *RedisStorage) key(id string) string {
 // NewURL save new url
 func (r *RedisStorage) NewURL(url string, id string, appid string, ttl int) error {
 	key := r.key(id)
-	var ok bool
 	var err error
-	ok, err = r.client.HSetNX(r.ctx, key, "url", url).Result()
+	var addKeyCmd *redis.BoolCmd
+	_, err = r.client.TxPipelined(r.ctx, func(p redis.Pipeliner) error {
+		addKeyCmd = p.HSetNX(r.ctx, key, "url", url)
+
+		p.HSet(r.ctx, key, "appid", appid)
+		p.HSet(r.ctx, key, "created_at", time.Now().String())
+		p.Expire(r.ctx, key, time.Duration(ttl)*time.Hour)
+		return nil
+	})
 	if err != nil {
 		log.Println("save url error,", err)
 		return err
 	}
-	if !ok {
-		log.Println("save url shortid already exists")
+	if !addKeyCmd.Val() {
+		log.Println("URL Already exists")
 		return ErrAlreadyExist
 	}
-
-	r.client.HSet(r.ctx, key, "appid", appid)
-	r.client.HSet(r.ctx, key, "created_at", time.Now().String()).Result()
-	_, err = r.client.Expire(r.ctx, key, time.Duration(ttl)*time.Hour).Result()
-	if err != nil {
-		log.Println("save redis url error, ", err)
-		return err
-	}
-	return nil
+	return err
 }
 
 // DeleteURLByID delete url from redis

@@ -68,9 +68,15 @@ func (r *RedisStorage) NewURL(url string, id string, appid string, ttl int) erro
 	_, err = r.client.TxPipelined(r.ctx, func(p redis.Pipeliner) error {
 		addKeyCmd = p.HSetNX(r.ctx, key, "url", url)
 
-		p.HSet(r.ctx, key, "appid", appid)
-		p.HSet(r.ctx, key, "created_at", time.Now().String())
-		p.Expire(r.ctx, key, time.Duration(ttl)*time.Hour)
+		if err := p.HSet(r.ctx, key, "appid", appid).Err(); err != nil {
+			return err
+		}
+		if err := p.HSet(r.ctx, key, "created_at", time.Now().String()).Err(); err != nil {
+			return err
+		}
+		if err := p.Expire(r.ctx, key, time.Duration(ttl)*time.Hour).Err(); err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {
